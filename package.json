@@ -1,5 +1,5 @@
 {
-  "name": "hapi-sw",
+  "name": "@trippnology/hapi-sw",
   "version": "1.0.0-alpha",
   "description": "> ServiceWorker generation plugin for Hapi.js",
   "main": "index.js",
