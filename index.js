@@ -7,33 +7,31 @@ const path = require('node:path');
 
 const internals = {};
 
-internals.routeOptionSchema = {
+internals.routeOptionSchema = Joi.object({
     dynamicUrlToDependencies: Joi.array().optional(),
     dontCacheBustUrlsMatching: [
         Joi.string().optional(),
         Joi.boolean().optional(),
     ],
     navigateFallback: Joi.boolean().optional(),
-    runtimeCaching: Joi.object()
-        .keys({
-            handler: Joi.string().allow([
-                'networkFirst',
-                'cacheFirst',
-                'fastest',
-                'cacheOnly',
-                'networkOnly',
-            ]),
-            method: Joi.string()
-                .allow(['get', 'post', 'put', 'delete', 'head'])
-                .insensitive()
-                .optional()
-                .lowercase(),
-            options: Joi.object().optional(),
-        })
-        .optional(),
-};
+    runtimeCaching: Joi.object({
+        handler: Joi.string().valid(
+            'networkFirst',
+            'cacheFirst',
+            'fastest',
+            'cacheOnly',
+            'networkOnly',
+        ),
+        method: Joi.string()
+            .valid('get', 'post', 'put', 'delete', 'head')
+            .insensitive()
+            .optional()
+            .lowercase(),
+        options: Joi.object().optional(),
+    }).optional(),
+});
 
-internals.globalOptionsSchema = {
+internals.globalOptionsSchema = Joi.object({
     cacheId: Joi.string().optional(),
     clientsClaim: Joi.boolean().optional(),
     directoryIndex: Joi.string().optional(),
@@ -54,15 +52,15 @@ internals.globalOptionsSchema = {
         .items(
             Joi.object().keys({
                 urlPattern: Joi.any().required(),
-                handler: Joi.string().allow([
+                handler: Joi.string().valid(
                     'networkFirst',
                     'cacheFirst',
                     'fastest',
                     'cacheOnly',
                     'networkOnly',
-                ]),
+                ),
                 method: Joi.string()
-                    .allow(['get', 'post', 'put', 'delete', 'head'])
+                    .valid('get', 'post', 'put', 'delete', 'head')
                     .insensitive()
                     .optional()
                     .lowercase(),
@@ -78,7 +76,7 @@ internals.globalOptionsSchema = {
     verbose: Joi.boolean().optional(),
     // custom options below
     defaultWorker: Joi.string().optional(),
-};
+});
 
 internals.mergeOptions = (key, value, route) => {
     let result = {};
@@ -113,10 +111,11 @@ const plugin = {
     name: 'sw',
     version: pkg.version,
     register: async (server, options) => {
-        const config = await Joi.validate(
-            options,
-            internals.globalOptionsSchema,
-        );
+        const { error, value: config } =
+            internals.globalOptionsSchema.validate(options);
+        if (error) {
+            throw error;
+        }
 
         let needsRegeneration = true;
         let worker = config.defaultWorker || '';
