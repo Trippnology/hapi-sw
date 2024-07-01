@@ -11,8 +11,8 @@
   "author": "wookiehangover",
   "license": "ISC",
   "dependencies": {
-    "hoek": "^4.1.0",
-    "joi": "10.5.2",
+    "@hapi/hoek": "11.0.4",
+    "joi": "17.13.3",
     "sw-precache": "5.2.1"
   },
   "devDependencies": {
