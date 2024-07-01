@@ -145,7 +145,7 @@ function ServiceWorkerPlugin (server, options, callback) {
       }
     }])
 
-    server.on('route', registerRoutes)
+    server.events.on('route', registerRoutes)
 
     callback()
   })
