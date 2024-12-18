@@ -1,72 +1,70 @@
-const Hapi = require('hapi')
-const server = new Hapi.Server()
-const path = require('path')
+const path = require('node:path');
 
-console.log(__dirname)
+const Hapi = require('@hapi/hapi');
 
-server.connection({ port: 9000 })
+console.log(__dirname);
 
-server.register([
-  require('inert'),
-  {
-    register: require('../'),
-    options: {
-      verbose: true,
-      staticFileGlobs: [
-        '*.css'
-      ],
-      runtimeCaching: [
-            {
-              urlPattern: /https:\/\/unsplash.it\//,
-              handler: 'fastest',
-              options: {
-                debug: true
-              }
-            },
-            {
-                urlPattern: /https:\/\/unpkg.com\//,
-                handler: 'cacheFirst',
-                options: {
-                  debug: true
-                }
-            }
-        ]
-    }
-  }
-], (err) => {
-  if (err) {
-    throw err
-  }
+async function init() {
+	const server = Hapi.Server({ host: '0.0.0.0', port: 9000 });
 
-  server.route([
-    {
-      path: '/',
-      method: 'GET',
-      config: {
-        plugins: {
-          sw: {
-            dynamicUrlToDependencies: [
-              'index.html',
-            ]
-          }
-        }
-      },
-      handler: {
-        file: 'index.html'
-      }
-    },
-    {
-      path: '/{param*}',
-      method: 'GET',
-      handler: {
-          directory: {
-              path: path.resolve(__dirname)
-          }
-      }
-    }
-  ])
+	await server.register([
+		require('@hapi/inert'),
+		{
+			plugin: require('../'),
+			options: {
+				verbose: true,
+				staticFileGlobs: ['*.css'],
+				runtimeCaching: [
+					{
+						urlPattern: /https:\/\/picsum.photos\//,
+						handler: 'fastest',
+						options: {
+							debug: true,
+						},
+					},
+					{
+						urlPattern: /https:\/\/unpkg.com\//,
+						handler: 'cacheFirst',
+						options: {
+							debug: true,
+						},
+					},
+				],
+			},
+		},
+	]);
 
-  server.start((err) => {
-    console.log(`Server started on ${server.info.uri}`)
-  })
-})
+	server.route([
+		{
+			path: '/',
+			method: 'GET',
+			config: {
+				plugins: {
+					sw: {
+						dynamicUrlToDependencies: [
+							path.join(__dirname, 'index.html'),
+						],
+					},
+				},
+			},
+			handler: (request, h) => {
+				return h.file(path.join(__dirname, 'index.html'));
+			},
+		},
+		{
+			path: '/{param*}',
+			method: 'GET',
+			handler: {
+				directory: {
+					path: path.resolve(__dirname),
+				},
+			},
+		},
+	]);
+
+	await server.start();
+
+	console.log(`Server started on ${server.info.uri}`);
+}
+
+init();
