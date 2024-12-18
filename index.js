@@ -1,9 +1,11 @@
-const pkg = require('./package.json');
-const swPrecache = require('sw-precache');
-const Hoek = require('@hapi/hoek');
-const Joi = require('joi');
 const fs = require('node:fs');
 const path = require('node:path');
+
+const Hoek = require('@hapi/hoek');
+const Joi = require('joi');
+const swPrecache = require('sw-precache');
+
+const pkg = require('./package.json');
 
 const internals = {};
 
