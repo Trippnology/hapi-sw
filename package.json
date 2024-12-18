@@ -1,33 +1,33 @@
 {
-  "name": "@trippnology/hapi-sw",
-  "version": "2.0.0",
-  "description": "> ServiceWorker generation plugin for Hapi.js",
-  "main": "index.js",
-  "scripts": {
-    "lint": "standard",
-    "test": "mocha"
-  },
-  "keywords": [],
-  "author": "wookiehangover",
-  "license": "ISC",
-  "dependencies": {
-    "@hapi/hoek": "11.0.7",
-    "@hapi/inert": "7.1.0",
-    "joi": "17.13.3",
-    "sw-precache": "5.2.1"
-  },
-  "devDependencies": {
-    "@hapi/hapi": "21.3.12",
-    "chai": "4.1.2",
-    "mocha": "10.0.0",
-    "standard": "17.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/wookiehangover/hapi-sw.git"
-  },
-  "bugs": {
-    "url": "https://github.com/wookiehangover/hapi-sw/issues"
-  },
-  "homepage": "https://github.com/wookiehangover/hapi-sw#readme"
+	"name": "@trippnology/hapi-sw",
+	"version": "2.0.0",
+	"description": "> ServiceWorker generation plugin for Hapi.js",
+	"main": "index.js",
+	"scripts": {
+		"lint": "standard",
+		"test": "mocha"
+	},
+	"keywords": [],
+	"author": "trippnology",
+	"license": "ISC",
+	"dependencies": {
+		"@hapi/hoek": "11.0.7",
+		"@hapi/inert": "7.1.0",
+		"joi": "17.13.3",
+		"sw-precache": "5.2.1"
+	},
+	"devDependencies": {
+		"@hapi/hapi": "21.3.12",
+		"chai": "4.1.2",
+		"mocha": "10.0.0",
+		"standard": "17.0.0"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/trippnology/hapi-sw.git"
+	},
+	"bugs": {
+		"url": "https://github.com/trippnology/hapi-sw/issues"
+	},
+	"homepage": "https://github.com/trippnology/hapi-sw#readme"
 }
