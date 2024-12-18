@@ -175,7 +175,7 @@ const plugin = {
                 path: '/service-worker-registration.js',
                 method: 'GET',
                 options: {
-                    auth: false,
+                    auth: { mode: 'optional' },
                 },
                 handler: (request, h) => {
                     return h.file(
