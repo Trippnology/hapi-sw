@@ -16,7 +16,7 @@
 		"sw-precache": "5.2.1"
 	},
 	"devDependencies": {
-		"@hapi/hapi": "21.3.12",
+		"@hapi/hapi": "21.4.3",
 		"chai": "4.1.2",
 		"mocha": "10.0.0"
 	},
