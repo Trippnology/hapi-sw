@@ -13,20 +13,21 @@ async function init() {
 			plugin: require('../'),
 			options: {
 				verbose: true,
-				staticFileGlobs: ['*.css'],
+				globDirectory: __dirname,
+				globPatterns: ['*.css'],
 				runtimeCaching: [
 					{
 						urlPattern: /https:\/\/picsum.photos\//,
-						handler: 'fastest',
+						handler: 'StaleWhileRevalidate', // was 'fastest'
 						options: {
-							debug: true,
+							cacheName: 'image-cache',
 						},
 					},
 					{
 						urlPattern: /https:\/\/unpkg.com\//,
-						handler: 'cacheFirst',
+						handler: 'CacheFirst', // was 'cacheFirst'
 						options: {
-							debug: true,
+							cacheName: 'cdn-cache',
 						},
 					},
 				],
@@ -41,7 +42,7 @@ async function init() {
 			config: {
 				plugins: {
 					sw: {
-						dynamicUrlToDependencies: [
+						templatedURLs: [
 							path.join(__dirname, 'index.html'),
 						],
 					},

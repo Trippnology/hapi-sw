@@ -1,55 +1,123 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const { generateSW } = require('workbox-build');
 
 const Hoek = require('@hapi/hoek');
 const Joi = require('joi');
-const swPrecache = require('sw-precache');
+const configTransformer = require('./lib/config-transformer');
 
 const pkg = require('./package.json');
 
 const internals = {};
 
 internals.routeOptionSchema = Joi.object({
+	// Legacy sw-precache options (supported with deprecation warnings)
 	dynamicUrlToDependencies: Joi.array().optional(),
 	dontCacheBustUrlsMatching: [
 		Joi.string().optional(),
 		Joi.boolean().optional(),
 	],
+
+	// New Workbox options
+	templatedURLs: Joi.array().optional(),
+	dontCacheBustURLsMatching: [
+		Joi.string().optional(),
+		Joi.boolean().optional(),
+	],
+
 	navigateFallback: Joi.boolean().optional(),
-	runtimeCaching: Joi.object({
-		handler: Joi.string().valid(
-			'networkFirst',
-			'cacheFirst',
-			'fastest',
-			'cacheOnly',
-			'networkOnly',
+	runtimeCaching: Joi.alternatives().try(
+		Joi.object({
+			urlPattern: Joi.any().required(),
+			handler: Joi.string().valid(
+				'networkFirst',
+				'cacheFirst',
+				'fastest',
+				'cacheOnly',
+				'networkOnly',
+				'NetworkFirst',
+				'CacheFirst',
+				'StaleWhileRevalidate',
+				'CacheOnly',
+				'NetworkOnly',
+			),
+			method: Joi.string()
+				.valid('get', 'post', 'put', 'delete', 'head', 'GET', 'POST', 'PUT', 'DELETE', 'HEAD')
+				.optional(),
+			options: Joi.object().optional(),
+		}),
+		Joi.array().items(
+			Joi.object({
+				urlPattern: Joi.any().required(),
+				handler: Joi.string().valid(
+					'networkFirst',
+					'cacheFirst',
+					'fastest',
+					'cacheOnly',
+					'networkOnly',
+					'NetworkFirst',
+					'CacheFirst',
+					'StaleWhileRevalidate',
+					'CacheOnly',
+					'NetworkOnly',
+				),
+				method: Joi.string()
+					.valid('get', 'post', 'put', 'delete', 'head', 'GET', 'POST', 'PUT', 'DELETE', 'HEAD')
+					.optional(),
+				options: Joi.object().optional(),
+			}),
 		),
-		method: Joi.string()
-			.valid('get', 'post', 'put', 'delete', 'head')
-			.insensitive()
-			.optional()
-			.lowercase(),
-		options: Joi.object().optional(),
-	}).optional(),
+	).optional(),
+
+	// New Workbox-specific options
+	backgroundSync: Joi.object().optional(),
+	broadcastUpdate: Joi.object().optional(),
+	cacheableResponse: Joi.object().optional(),
+	rangeRequests: Joi.boolean().optional(),
+	networkTimeoutSeconds: Joi.number().optional(),
 });
 
 internals.globalOptionsSchema = Joi.object({
+	// Required Workbox options
+	globDirectory: Joi.string().optional(),
+	swDest: Joi.string().optional(),
+	mode: Joi.string().valid('production', 'development').optional(),
+
+	// Legacy sw-precache options (supported with deprecation warnings)
 	cacheId: Joi.string().optional(),
 	clientsClaim: Joi.boolean().optional(),
 	directoryIndex: Joi.string().optional(),
 	dontCacheBustUrlsMatching: Joi.string()
 		.regex(/^\/.*\//)
 		.raw()
-		.optional(),
+	.optional(),
 	dynamicUrlToDependencies: Joi.object().optional(),
 	handleFetch: Joi.boolean().optional(),
 	ignoreUrlParametersMatching: Joi.array().optional(),
-	importScripts: Joi.array().items(Joi.string()).optional(),
-	logger: Joi.func().optional(),
-	maximumFileSizeToCacheInBytes: Joi.number().optional(),
-	navigateFallback: Joi.string().optional(),
+	staticFileGlobs: Joi.array().items(Joi.string()).optional(),
 	navigateFallbackWhitelist: Joi.array().optional(),
 	replacePrefix: Joi.string().optional(),
+	stripPrefix: Joi.string().optional(),
+	stripPrefixMulti: Joi.object().optional(),
+	templateFilePath: Joi.string().optional(),
+	verbose: Joi.boolean().optional(),
+
+	// New Workbox options
+	globPatterns: Joi.array().items(Joi.string()).optional(),
+	templatedURLs: Joi.object().optional(),
+	dontCacheBustURLsMatching: Joi.string()
+		.regex(/^\/.*\//)
+		.raw()
+	.optional(),
+	navigateFallbackAllowlist: Joi.array().optional(),
+
+	// Common options
+	importScripts: Joi.array().items(Joi.string()).optional(),
+	maximumFileSizeToCacheInBytes: Joi.number().optional(),
+	navigateFallback: Joi.string().optional(),
+	skipWaiting: Joi.boolean().optional(),
+
+	// Runtime caching
 	runtimeCaching: Joi.array()
 		.items(
 			Joi.object().keys({
@@ -60,23 +128,25 @@ internals.globalOptionsSchema = Joi.object({
 					'fastest',
 					'cacheOnly',
 					'networkOnly',
+					'NetworkFirst',
+					'CacheFirst',
+					'StaleWhileRevalidate',
+					'CacheOnly',
+					'NetworkOnly',
 				),
 				method: Joi.string()
-					.valid('get', 'post', 'put', 'delete', 'head')
-					.insensitive()
-					.optional()
-					.lowercase(),
+					.valid('get', 'post', 'put', 'delete', 'head', 'GET', 'POST', 'PUT', 'DELETE', 'HEAD')
+					.optional(),
 				options: Joi.object().optional(),
 			}),
 		)
 		.optional(),
-	skipWaiting: Joi.boolean().optional(),
-	staticFileGlobs: Joi.array().items(Joi.string()).optional(),
-	stripPrefix: Joi.string().optional(),
-	stripPrefixMulti: Joi.object().optional(),
-	templateFilePath: Joi.string().optional(),
-	verbose: Joi.boolean().optional(),
-	// custom options below
+
+	// New Workbox-specific options
+	cleanupOutdatedCaches: Joi.boolean().optional(),
+	navigationPreload: Joi.boolean().optional(),
+
+	// Custom hapi-sw options
 	defaultWorker: Joi.string().optional(),
 });
 
@@ -84,14 +154,30 @@ internals.mergeOptions = (key, value, route) => {
 	let result = {};
 	switch (key) {
 		case 'dynamicUrlToDependencies':
-			result[key] = {};
-			result[key][route.path] = value;
+		case 'templatedURLs':
+			result['templatedURLs'] = {};
+			result['templatedURLs'][route.path] = value;
 			break;
 		case 'dontCacheBustUrlsMatching':
+		case 'dontCacheBustURLsMatching':
 			if (value === true) {
-				result[key] = [new RegExp(route.path)];
+				result['dontCacheBustURLsMatching'] = [new RegExp(route.path)];
 			} else {
-				result[key] = value;
+				result['dontCacheBustURLsMatching'] = value;
+			}
+			break;
+		case 'runtimeCaching':
+			// Transform handler names if needed
+			if (Array.isArray(value)) {
+				result['runtimeCaching'] = value.map(rule => ({
+					...rule,
+					handler: configTransformer.transformHandlerName(rule.handler),
+				}));
+			} else {
+				result['runtimeCaching'] = [{
+					...value,
+					handler: configTransformer.transformHandlerName(value.handler),
+				}];
 			}
 			break;
 		default:
@@ -113,23 +199,52 @@ const plugin = {
 	name: 'sw',
 	version: pkg.version,
 	register: async (server, options) => {
+		// Check for deprecated options and issue warnings
+		const deprecationWarnings = configTransformer.checkDeprecatedOptions(options);
+		if (deprecationWarnings.length > 0) {
+			console.warn('hapi-sw deprecation warnings:');
+			deprecationWarnings.forEach(warning => console.warn(`  - ${warning}`));
+		}
+
+		// Normalize configuration (transform legacy options)
+		const normalizedOptions = configTransformer.normalizeConfig(options);
+
 		const { error, value: config } =
-			internals.globalOptionsSchema.validate(options);
+			internals.globalOptionsSchema.validate(normalizedOptions);
 		if (error) {
 			throw error;
 		}
 
+		// Set required Workbox options with sensible defaults if not provided
+		if (!config.globDirectory) {
+			config.globDirectory = process.cwd();
+		}
+		if (!config.swDest) {
+			// Use temp directory in project root
+			const tempDir = path.join(process.cwd(), 'temp');
+			if (!fs.existsSync(tempDir)) {
+				fs.mkdirSync(tempDir, { recursive: true });
+			}
+			config.swDest = path.join(tempDir, 'service-worker.js');
+		}
+		if (!config.mode) {
+			config.mode = 'production';
+		}
+
+		// Note: defaultWorker was already extracted and deleted from config
 		let needsRegeneration = true;
-		let worker = config.defaultWorker || '';
+		let worker = '';
 
 		function registerRoutes(route) {
 			const settings = Joi.attempt(
-				route.settings.plugins.sw,
+				route.settings.plugins?.sw,
 				internals.routeOptionSchema,
 			);
 			if (settings) {
+				// Normalize route settings (transform legacy options)
+				const normalizedSettings = configTransformer.normalizeConfig(settings);
 				const routeConfig = internals.reduceRouteConfig(
-					settings,
+					normalizedSettings,
 					route,
 				);
 				if (routeConfig) {
@@ -144,17 +259,38 @@ const plugin = {
 				return worker;
 			}
 
-			return new Promise((resolve, reject) => {
-				swPrecache.generate(config, (err, newWorker) => {
-					if (err) {
-						reject(err);
-					} else {
-						needsRegeneration = false;
-						worker = newWorker;
-						resolve(worker);
+			try {
+				// Transform configuration to Workbox format
+				const workboxConfig = configTransformer.transformGlobalConfig(config);
+
+				// Add verbose logging if requested
+				if (config.verbose) {
+					console.log('Generating Workbox service worker with config:', JSON.stringify(workboxConfig, null, 2));
+				}
+
+				// Generate service worker using Workbox
+				const { count, size, warnings } = await generateSW(workboxConfig);
+
+				// Read the generated service worker file
+				const swPath = path.resolve(workboxConfig.swDest);
+				worker = fs.readFileSync(swPath, 'utf-8');
+
+				// Log generation results
+				if (config.verbose) {
+					console.log(`Generated service worker: ${count} files, ${size} bytes`);
+					if (warnings.length > 0) {
+						console.warn('Workbox warnings:', warnings.join('\n'));
 					}
-				});
-			});
+				} else if (warnings.length > 0) {
+					console.warn('Workbox generation warnings:', warnings.join('\n'));
+				}
+
+				needsRegeneration = false;
+				return worker;
+			} catch (err) {
+				console.error('Workbox generation error:', err.message);
+				throw new Error(`Service worker generation failed: ${err.message}`);
+			}
 		}
 
 		server.route([
@@ -178,10 +314,11 @@ const plugin = {
 					auth: false,
 				},
 				handler: (request, h) => {
-					return h.file(
-						require.resolve('./service-worker-registration.js'),
-						{ confine: false },
-					);
+					const registrationPath = require.resolve('./service-worker-registration.js');
+					const registrationContent = fs.readFileSync(registrationPath, 'utf-8');
+					return h
+						.response(registrationContent)
+						.type('application/javascript');
 				},
 			},
 		]);
