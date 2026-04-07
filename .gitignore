@@ -7,7 +7,6 @@ coverage
 .idea/
 npm-debug.log
 dist/
-lib/
 
 # Generated service worker files and source maps
 temp/
