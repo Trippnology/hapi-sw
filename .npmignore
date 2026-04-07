@@ -7,4 +7,3 @@ coverage
 .idea/
 npm-debug.log
 dist/
-lib/
