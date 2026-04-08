@@ -18,7 +18,7 @@
 	},
 	"devDependencies": {
 		"@hapi/hapi": "21.4.8",
-		"chai": "5.2.1",
+		"chai": "6.2.2",
 		"mocha": "11.7.5"
 	},
 	"repository": {
