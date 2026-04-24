@@ -1,10 +1,10 @@
 {
 	"name": "@trippnology/hapi-sw",
-	"version": "3.0.3",
+	"version": "3.0.4",
 	"description": "> ServiceWorker generation plugin for Hapi.js",
 	"main": "index.js",
 	"scripts": {
-		"test": "mocha"
+		"test": "mocha test/index.test.js"
 	},
 	"keywords": [],
 	"author": "trippnology",

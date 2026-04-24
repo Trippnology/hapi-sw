@@ -234,6 +234,7 @@ const plugin = {
 		// Note: defaultWorker was already extracted and deleted from config
 		let needsRegeneration = true;
 		let worker = '';
+		let generatedFilePaths = [];
 
 		function registerRoutes(route) {
 			const settings = Joi.attempt(
@@ -268,8 +269,33 @@ const plugin = {
 					console.log('Generating Workbox service worker with config:', JSON.stringify(workboxConfig, null, 2));
 				}
 
+				// Clean up old workbox files before generating new ones
+				const swDestDir = path.dirname(workboxConfig.swDest);
+				if (fs.existsSync(swDestDir)) {
+					const files = fs.readdirSync(swDestDir);
+					files.forEach(file => {
+						// Remove old workbox-*.js and workbox-*.js.map files
+						if (file.startsWith('workbox-') && (file.endsWith('.js') || file.endsWith('.js.map'))) {
+							const filePath = path.join(swDestDir, file);
+							fs.unlinkSync(filePath);
+							if (config.verbose) {
+								console.log(`Cleaned up old file: ${file}`);
+							}
+						}
+					});
+				}
+
 				// Generate service worker using Workbox
-				const { count, size, warnings } = await generateSW(workboxConfig);
+				const { filePaths, count, size, warnings } = await generateSW(workboxConfig);
+
+				// Extract generated file paths for route registration
+				const generatedFiles = filePaths.filter(filePath =>
+					filePath.endsWith('.js') && !filePath.endsWith('.map')
+				);
+				generatedFilePaths = generatedFiles.map(filePath => ({
+					relativePath: path.basename(filePath),
+					absolutePath: filePath
+				}));
 
 				// Read the generated service worker file
 				const swPath = path.resolve(workboxConfig.swDest);
@@ -293,38 +319,67 @@ const plugin = {
 			}
 		}
 
-		server.route([
-			{
-				path: '/service-worker.js',
+		// Ensure @hapi/inert is registered for static file serving
+		if (!server.registrations['@hapi/inert']) {
+			await server.register(require('@hapi/inert'));
+		}
+
+		// Generate service worker files immediately to get filePaths for route registration
+		await generateSw();
+
+		// Register fixed /service-worker.js route for backward compatibility
+		server.route({
+			path: '/service-worker.js',
+			method: 'GET',
+			options: {
+				auth: false,
+			},
+			handler: (request, h) => {
+				return h
+					.response(worker)
+					.type('application/javascript');
+			},
+		});
+
+		// Register dynamic routes for workbox runtime files using @hapi/inert
+		generatedFilePaths.forEach(({ relativePath, absolutePath }) => {
+			// Skip the service worker file itself (already handled above)
+			if (relativePath.includes('service-worker') || relativePath.startsWith('.tmp')) {
+				return;
+			}
+
+			server.route({
+				path: `/${relativePath}`,
 				method: 'GET',
 				options: {
 					auth: false,
-					pre: [{ method: generateSw, assign: 'sw' }],
+					files: {
+						relativeTo: path.resolve(path.dirname(absolutePath)),
+					},
 				},
-				handler: (request, h) => {
-					return h
-						.response(request.pre.sw)
-						.type('application/javascript');
+				handler: {
+					file: path.basename(absolutePath),
 				},
+			});
+		});
+
+		// Register service worker registration route
+		server.route({
+			path: '/service-worker-registration.js',
+			method: 'GET',
+			options: {
+				auth: false,
 			},
-			{
-				path: '/service-worker-registration.js',
-				method: 'GET',
-				options: {
-					auth: false,
-				},
-				handler: (request, h) => {
-					const registrationPath = require.resolve('./service-worker-registration.js');
-					const registrationContent = fs.readFileSync(registrationPath, 'utf-8');
-					return h
-						.response(registrationContent)
-						.type('application/javascript');
-				},
+			handler: (request, h) => {
+				const registrationPath = require.resolve('./service-worker-registration.js');
+				const registrationContent = fs.readFileSync(registrationPath, 'utf-8');
+				return h
+					.response(registrationContent)
+					.type('application/javascript');
 			},
-		]);
+		});
 
 		server.events.on('route', registerRoutes);
 	},
 };
-
 module.exports = plugin;

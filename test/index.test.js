@@ -6,6 +6,9 @@ const sw = require('../index');
 const fs = require('fs');
 const path = require('path');
 
+// Helper to get temp directory at project root
+const getTempDir = () => path.join(__dirname, '..', 'temp');
+
 describe('hapi-sw with Workbox', () => {
 	let server;
 
@@ -17,14 +20,48 @@ describe('hapi-sw with Workbox', () => {
 		await server.stop();
 	});
 
+	after(() => {
+		// Clean up all generated files after all tests
+		const tempDir = getTempDir();
+		if (fs.existsSync(tempDir)) {
+			const files = fs.readdirSync(tempDir);
+			files.forEach(file => {
+				// Remove all generated service worker and workbox files
+				if (file.startsWith('workbox-') || file.startsWith('.tmp-sw') ||
+				    file.startsWith('test-sw') || file === 'service-worker.js' ||
+				    file === 'service-worker.js.map') {
+					const filePath = path.join(tempDir, file);
+					if (fs.existsSync(filePath)) {
+						fs.unlinkSync(filePath);
+					}
+				}
+			});
+		}
+
+		// Also clean up test directory (safely - only known generated files)
+		const testDir = __dirname;
+		if (fs.existsSync(testDir)) {
+			const files = fs.readdirSync(testDir);
+			files.forEach(file => {
+				// Only remove known generated files, never test files
+				if (file.startsWith('workbox-') || file === 'test-sw.js' || file === 'test-sw.js.map') {
+					const filePath = path.join(testDir, file);
+					if (fs.existsSync(filePath)) {
+						fs.unlinkSync(filePath);
+					}
+				}
+			});
+		}
+	});
+
 	describe('Plugin Registration', () => {
 		it('should register successfully with Workbox config', async () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, 'test-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), 'test-sw.js'),
 				},
 			});
 			expect(server.registrations).to.have.property('sw');
@@ -48,7 +85,7 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globPatterns: ['*.js'],
+					globPatterns: ['*.html'],
 				},
 			});
 			expect(server.registrations).to.have.property('sw');
@@ -60,7 +97,7 @@ describe('hapi-sw with Workbox', () => {
 					plugin: sw,
 					options: {
 						globDirectory: '/invalid/path/that/does/not/exist',
-						globPatterns: ['*.js'],
+						globPatterns: ['*.html'],
 					},
 				});
 				expect.fail('Should have thrown an error');
@@ -75,9 +112,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 				},
 			});
 
@@ -89,21 +126,15 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.statusCode).to.equal(200);
 			expect(response.headers['content-type']).to.include('javascript');
 			expect(response.payload).to.include('workbox'); // Should contain Workbox code
-
-			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
-			if (fs.existsSync(swPath)) {
-				fs.unlinkSync(swPath);
-			}
 		});
 
 		it('should cache generated service worker', async () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 				},
 			});
 
@@ -113,7 +144,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response1.payload).to.equal(response2.payload);
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -123,9 +154,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 				},
 			});
 
@@ -148,7 +179,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('workbox');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -160,9 +191,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 				},
 			});
 
@@ -184,7 +215,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('workbox');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -194,9 +225,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 				},
 			});
 
@@ -218,7 +249,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('workbox');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -228,9 +259,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 				},
 			});
 
@@ -255,7 +286,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('workbox');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -267,9 +298,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 					runtimeCaching: [{
 						urlPattern: /\/api\//,
 						handler: 'fastest', // Should transform to StaleWhileRevalidate
@@ -282,7 +313,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('StaleWhileRevalidate');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -292,9 +323,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 					runtimeCaching: [{
 						urlPattern: /\/api\//,
 						handler: 'NetworkFirst', // Workbox format
@@ -307,7 +338,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('NetworkFirst');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -317,9 +348,9 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
-					swDest: path.join(__dirname, '.tmp-sw.js'),
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
+					swDest: path.join(getTempDir(), '.tmp-sw.js'),
 					runtimeCaching: [{
 						urlPattern: /\/api\//,
 						handler: 'NetworkFirst',
@@ -339,7 +370,7 @@ describe('hapi-sw with Workbox', () => {
 			expect(response.payload).to.include('api-cache');
 
 			// Clean up
-			const swPath = path.join(__dirname, '.tmp-sw.js');
+			const swPath = path.join(getTempDir(), '.tmp-sw.js');
 			if (fs.existsSync(swPath)) {
 				fs.unlinkSync(swPath);
 			}
@@ -348,18 +379,19 @@ describe('hapi-sw with Workbox', () => {
 
 	describe('Error Handling', () => {
 		it('should handle generation errors gracefully', async () => {
-			await server.register({
-				plugin: sw,
-				options: {
-					globDirectory: '/invalid/path',
-					globPatterns: ['*.js'],
-				},
-			});
-
-			const response = await server.inject('/service-worker.js');
-			expect(response.statusCode).to.equal(500);
-			// The error message should be logged to console, not returned in response
-			// This tests that the plugin handles errors gracefully without crashing
+			try {
+				await server.register({
+					plugin: sw,
+					options: {
+						globDirectory: '/invalid/path',
+						globPatterns: ['*.html'],
+					},
+				});
+				expect.fail('Should have thrown an error during registration');
+			} catch (err) {
+				expect(err).to.exist;
+				expect(err.message).to.include('Service worker generation failed');
+			}
 		});
 
 		it('should provide deprecation warnings for legacy options', async () => {
@@ -388,8 +420,8 @@ describe('hapi-sw with Workbox', () => {
 			await server.register({
 				plugin: sw,
 				options: {
-					globDirectory: __dirname,
-					globPatterns: ['*.js'],
+					globDirectory: path.join(__dirname, 'fixtures'),
+					globPatterns: ['*.html'],
 				},
 			});
 
