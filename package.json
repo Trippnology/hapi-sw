@@ -11,15 +11,15 @@
 	"license": "ISC",
 	"dependencies": {
 		"@hapi/hoek": "11.0.7",
-		"@hapi/inert": "7.1.0",
+		"@hapi/inert": "7.1.1",
 		"joi": "18.1.2",
-		"workbox-build": "7.4.0",
-		"workbox-precaching": "7.4.0"
+		"workbox-build": "7.4.1",
+		"workbox-precaching": "7.4.1"
 	},
 	"devDependencies": {
-		"@hapi/hapi": "21.4.8",
+		"@hapi/hapi": "21.4.9",
 		"chai": "6.2.2",
-		"mocha": "11.7.5"
+		"mocha": "11.7.6"
 	},
 	"repository": {
 		"type": "git",
