@@ -1,6 +1,6 @@
 {
 	"name": "@trippnology/hapi-sw",
-	"version": "3.0.5",
+	"version": "3.0.6",
 	"description": "> ServiceWorker generation plugin for Hapi.js",
 	"main": "index.js",
 	"scripts": {
@@ -11,8 +11,8 @@
 	"license": "ISC",
 	"dependencies": {
 		"@hapi/hoek": "11.0.7",
-		"@hapi/inert": "7.1.1",
-		"joi": "18.2.1",
+		"@hapi/inert": "7.1.2",
+		"joi": "18.2.3",
 		"workbox-build": "7.4.1",
 		"workbox-precaching": "7.4.1"
 	},
